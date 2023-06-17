@@ -36,16 +36,56 @@ class DBManager:
                 cur.execute('CREATE TABLE IF NOT EXISTS employers '
                             '('
                             'employer_id int PRIMARY KEY, '
-                            'employer_name varchar(255) UNIQUE NOT NULL)')
+                            'employer_name varchar(255) UNIQUE NOT NULL,'
+                            'employer_url text UNIQUE NOT NULL)')
                 cur.execute('CREATE TABLE IF NOT EXISTS vacancies '
                             '('
                             'vacancy_id int PRIMARY KEY, '
                             'vacancy_name varchar(255) NOT NULL, '
                             'employer_id int REFERENCES employers(employer_id) NOT NULL, '
-                            'city text, '
-                            'salary_min int,'
-                            'salary_max int,'
-                            'url text)')
+                            'description text,'
+                            'url text, '
+                            'payment_from int NULL,'
+                            'payment_to int NULL,'
+                            'date_published date)')
+        conn.close()
+
+    def insert_in_employers(self, employer_id, employer, employer_url) -> None:
+        """
+        Добавлеяет данные
+        в бд в зависимости
+        от таблицы
+        """
+        conn = psycopg2.connect(dbname=self.dbname, **self.params)
+
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute('INSERT INTO employers(employer_id, employer_name, employer_url) '
+                            'VALUES(%s, %s, %s)'
+                            'ON CONFLICT (employer_id) DO NOTHING', (employer_id, employer, employer_url))
+
+        cur.close()
+        conn.close()
+
+    def insert_in_vacancies(self, vacancy_id, vacancy_name, employer_id, description, url, payment_from, payment_to,
+                            date_published) -> None:
+        """
+        Добавлеяет данные
+        в бд в зависимости
+        от таблицы
+        """
+        conn = psycopg2.connect(dbname=self.dbname, **self.params)
+
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute('INSERT INTO vacancies(vacancy_id, vacancy_name, employer_id, '
+                            'description, url, payment_from, payment_to, date_published) '
+                            'VALUES(%s, %s, %s, %s, %s, %s, %s, %s)'
+                            'ON CONFLICT (vacancy_id) DO NOTHING',
+                            (vacancy_id, vacancy_name, employer_id, description, url,
+                             payment_from, payment_to, date_published))
+
+        cur.close()
         conn.close()
 
     def insert_data_into_db(self, data):
@@ -103,48 +143,48 @@ class DBManager:
         return result
 
     def get_all_vacancies(self) -> list:
-        """ Получает список всех вакансий с указанием названия компании,
-        названия вакансии и зарплаты и ссылки на вакансию"""
-        result = self._execute_query("SELECT employers.employer_name, vacancy_name, salary_max, url "
+        """
+        Получает список всех вакансий
+        с указанием названия компании,
+        названия вакансии и зарплаты
+        и ссылки на вакансию
+        """
+        result = self._execute_query("SELECT employers.employer_name, vacancy_name, payment_from, payment_to, url "
                                      "FROM vacancies "
                                      "JOIN employers USING(employer_id)"
-                                     "WHERE salary_max IS NOT NULL "
-                                     "ORDER BY salary_max DESC, vacancy_name")
+                                     "WHERE payment_from IS NOT NULL AND payment_to IS NOT NULL "
+                                     "ORDER BY payment_from DESC, vacancy_name")
         return result
 
     def get_avg_salary(self) -> list:
-        """ Получает среднюю зарплату по вакансиям"""
-        result = self._execute_query("SELECT ROUND(AVG(salary_max)) as average_salary "
+        """
+        Получает среднюю
+        зарплату по вакансиям
+        """
+        result = self._execute_query("SELECT ROUND(AVG(payment_from)) as average_salary "
                                      "FROM vacancies")
         return result
 
     def get_vacancies_with_higher_salary(self) -> list:
-        """ Получает список всех вакансий, у которых зарплата выше средней по всем вакансиям"""
-        result = self._execute_query("SELECT vacancy_name, salary_max "
+        """
+        Получает список всех вакансий,
+        у которых зарплата выше средней
+        по всем вакансиям
+        """
+        result = self._execute_query("SELECT vacancy_name, payment_from "
                                      "FROM vacancies "
-                                     "WHERE salary_max > (SELECT AVG(salary_max) FROM vacancies) "
-                                     "ORDER BY salary_max DESC, vacancy_name")
+                                     "WHERE payment_from > (SELECT AVG(payment_from) FROM vacancies) "
+                                     "ORDER BY payment_from DESC, vacancy_name")
         return result
 
     def get_vacancies_with_keyword(self, word: str) -> list:
-        """Получает список всех вакансий, в названии которых содержатся переданные в метод слова, например “python”"""
+        """
+        Получает список всех вакансий,
+        в названии которых содержатся переданные
+        в метод слова
+        """
         result = self._execute_query("SELECT vacancy_name "
                                      "FROM vacancies "
                                      f"WHERE vacancy_name ILIKE '%{word}%'"
                                      "ORDER BY vacancy_name")
         return result
-
-
-if __name__ == '__main__':
-    params = config()
-    db = DBManager('head_hunter', params)
-    data = db.get_companies_and_vacancies_count()
-    print(data)
-    data_2 = db.get_all_vacancies()
-    print(data_2)
-    data_3 = db.get_avg_salary()
-    print(data_3)
-    data_4 = db.get_vacancies_with_higher_salary()
-    print(data_4)
-    data_5 = db.get_vacancies_with_keyword('python')
-    print(data_5)
