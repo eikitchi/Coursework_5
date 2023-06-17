@@ -16,6 +16,16 @@ CREATE TABLE IF NOT EXISTS vacancies
 	url text,
 	salary int
 );
+INSERT INTO employers(employer_id, employer_name, employer_url)
+VALUES(%s, %s, %s)
+ON CONFLICT (employer_id) DO NOTHING, (employer_id, employer, employer_url)
+
+
+INSERT INTO vacancies(vacancy_id, vacancy_name, employer_id,
+description, url, payment_from, payment_to, date_published)
+VALUES(%s, %s, %s, %s, %s, %s, %s, %s)
+ON CONFLICT (vacancy_id) DO NOTHING, (vacancy_id, vacancy_name, employer_id, description, url,
+payment_from, payment_to, date_published)
 
 --companies_and_vacancies_count
 SELECT employer_name, COUNT(*) as quantity_vacancies
